@@ -7,7 +7,7 @@ function Sparkline({ data }) {
   if (!data || data.length === 0) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
-  const range = max - min || 1; // avoid div by 0
+  const range = max - min || 1; 
   const height = 30;
   const width = 60;
   
@@ -32,8 +32,8 @@ function Sparkline({ data }) {
   );
 }
 
-function StockChart({ stock }) {
-  const [range, setRange] = useState('ALL'); // 3M, 6M, 1Y, 5Y, ALL
+function StockChart({ stock, txt }) {
+  const [range, setRange] = useState('ALL'); 
   const currentDay = stock.dailyHistory[stock.dailyHistory.length - 1].day;
 
   const getFilteredData = () => {
@@ -67,7 +67,7 @@ function StockChart({ stock }) {
   return (
     <div style={{ padding: '24px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', marginTop: '16px' }}>
       <div className="flex-between" style={{ marginBottom: '16px' }}>
-        <h3 style={{ margin: 0 }}>Price History</h3>
+        <h3 style={{ margin: 0 }}>{txt.priceHistory}</h3>
         <div style={{ display: 'flex', gap: '8px' }}>
           {['3M', '6M', '1Y', '5Y', 'ALL'].map(r => (
             <button
@@ -104,7 +104,7 @@ function StockChart({ stock }) {
 }
 
 function StockMarket() {
-  const { user, setUser, stocks, day } = useGame();
+  const { user, setUser, stocks, day, txt } = useGame();
   const navigate = useNavigate();
 
   const [tradeQuantities, setTradeQuantities] = useState({});
@@ -130,7 +130,7 @@ function StockMarket() {
         });
         setTradeQuantities(prev => ({ ...prev, [stockId]: '' }));
       } else {
-        alert("Not enough Bolts!");
+        alert(txt.notEnoughBolts);
       }
     }
   };
@@ -165,19 +165,19 @@ function StockMarket() {
     <div className="container">
       <header className="flex-between" style={{ marginBottom: '40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate('/')} className="glass-button">← Back</button>
+          <button onClick={() => navigate('/')} className="glass-button">{txt.back}</button>
           <div>
-            <h1>📈 Stock Market</h1>
-            <p className="text-muted">Day {day} • High Risk, High Reward</p>
+            <h1>{txt.stockHeader}</h1>
+            <p className="text-muted">Day {day} • {txt.stockSub}</p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div className="text-muted">Wallet Balance</div>
+          <div className="text-muted">{txt.walletBalance}</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-bolt)' }}>
             <span className="bolt-icon">⚡</span>{user.bolts.toLocaleString()}
           </div>
           <div className="text-muted" style={{ fontSize: '0.9rem', marginTop: '4px' }}>
-            Portfolio Value: ⚡{portfolioValue.toLocaleString()}
+            {txt.portfolioValue}: ⚡{portfolioValue.toLocaleString()}
           </div>
         </div>
       </header>
@@ -208,12 +208,12 @@ function StockMarket() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flex: 1 }}>
                   <div style={{ width: '80px' }}>
                     <h3 style={{ margin: 0 }}>{stock.name}</h3>
-                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>IPO: ⚡{stock.initialPrice}</div>
+                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>{txt.ipo}: ⚡{stock.initialPrice}</div>
                   </div>
                   
                   <div style={{ width: '100px' }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={colorClass}>
-                      {stock.isDelisted ? 'DELISTED' : `⚡${stock.currentPrice}`}
+                      {stock.isDelisted ? txt.delisted : `⚡${stock.currentPrice}`}
                     </div>
                     {!stock.isDelisted && (
                       <div style={{ fontSize: '0.8rem' }} className={colorClass}>
@@ -227,7 +227,7 @@ function StockMarket() {
                   </div>
 
                   <div style={{ width: '100px', textAlign: 'center' }}>
-                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>Owned</div>
+                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>{txt.owned}</div>
                     <div style={{ fontWeight: 'bold' }}>{owned}</div>
                   </div>
                 </div>
@@ -238,7 +238,7 @@ function StockMarket() {
                       type="number"
                       className="glass-input"
                       style={{ width: '80px', padding: '8px' }}
-                      placeholder="Qty"
+                      placeholder={txt.qty}
                       value={tradeQuantities[stock.id] || ''}
                       onChange={(e) => handleQuantityChange(stock.id, e.target.value)}
                       onClick={(e) => e.stopPropagation()}
@@ -249,7 +249,7 @@ function StockMarket() {
                       className="glass-button" 
                       style={{ padding: '8px 16px', background: 'rgba(34, 197, 94, 0.2)', borderColor: 'var(--success)', color: 'var(--success)' }}
                     >
-                      Buy
+                      {txt.buy}
                     </button>
                     <button 
                       onClick={(e) => sellStock(stock.id, stock.currentPrice, e)}
@@ -257,7 +257,7 @@ function StockMarket() {
                       style={{ padding: '8px 16px', background: 'rgba(239, 68, 68, 0.2)', borderColor: 'var(--danger)', color: 'var(--danger)' }}
                       disabled={owned <= 0}
                     >
-                      Sell
+                      {txt.sell}
                     </button>
                   </div>
                 )}
@@ -265,7 +265,7 @@ function StockMarket() {
 
               {isActive && !stock.isDelisted && (
                 <div onClick={(e) => e.stopPropagation()}>
-                  <StockChart stock={stock} />
+                  <StockChart stock={stock} txt={txt} />
                 </div>
               )}
             </div>

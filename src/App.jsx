@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Bank from './pages/Bank'
 import StockMarket from './pages/StockMarket'
+import Settings from './pages/Settings'
 
 function PrivateRoute({ children }) {
   const { user } = useGame();
@@ -19,6 +20,7 @@ function App() {
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/bank" element={<PrivateRoute><Bank /></PrivateRoute>} />
       <Route path="/stock" element={<PrivateRoute><StockMarket /></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
     </Routes>
   )
 }

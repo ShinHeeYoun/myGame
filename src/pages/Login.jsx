@@ -5,7 +5,7 @@ import { useGame } from '../GameContext';
 function Login() {
   const [inputCode, setInputCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
-  const { login, generateCode } = useGame();
+  const { login, generateCode, txt } = useGame();
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -26,38 +26,38 @@ function Login() {
     <div className="container flex-center" style={{ minHeight: '100vh' }}>
       <div className="glass-panel" style={{ maxWidth: '400px', width: '100%' }}>
         <h2 className="flex-center" style={{ marginBottom: '24px' }}>
-          <span className="bolt-icon">⚡</span> Betting Game
+          <span className="bolt-icon">⚡</span> {txt.appName}
         </h2>
         
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Enter Code
+              {txt.enterCode}
             </label>
             <input 
               className="glass-input" 
               value={inputCode} 
               onChange={(e) => setInputCode(e.target.value)} 
-              placeholder="Your Login Code"
+              placeholder={txt.enterCode}
               required 
             />
           </div>
           
           <button type="submit" className="glass-button" style={{ width: '100%', background: 'var(--accent-bolt)', color: '#fff' }}>
-            Login
+            {txt.loginBtn}
           </button>
         </form>
 
         <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--card-border)', textAlign: 'center' }}>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>Don't have a code?</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>{txt.noCode}</p>
           <button onClick={handleGenerate} className="glass-button" style={{ width: '100%' }}>
-            Generate New Code
+            {txt.generateCode}
           </button>
           
           {generatedCode && (
             <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '8px', border: '1px solid var(--success)' }}>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--success)' }}>
-                Your code is: <strong>{generatedCode}</strong>
+                {txt.yourCodeIs} <strong>{generatedCode}</strong>
               </p>
             </div>
           )}
