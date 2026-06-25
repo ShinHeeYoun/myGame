@@ -25,6 +25,7 @@ const generateInitialStocks = () => {
       currentPrice: initialPrice,
       history: [initialPrice],
       dailyHistory: [{ day: 1, price: initialPrice }],
+      intradayHistory: { 9: initialPrice },
       isDelisted: false,
     };
   });
@@ -90,21 +91,28 @@ export const GameProvider = ({ children }) => {
           return prevStocks.map(stock => {
             if (stock.isDelisted) return stock;
 
-            const ratioToInitial = stock.currentPrice / stock.initialPrice;
-            const regressionForce = (1 - ratioToInitial) * 0.05; 
-            const randomFactor = (Math.random() - 0.5) * 0.1; 
-            let changePercent = randomFactor + regressionForce;
-            
-            if (changePercent > 0.5) changePercent = 0.5;
-            if (changePercent < -0.5) changePercent = -0.5;
+            const tickInDay = newTicks % ticksPerDay;
+            const totalMinutes = Math.floor((tickInDay / ticksPerDay) * 24 * 60);
+            const currentHour = Math.floor(totalMinutes / 60);
+            const isMarketOpen = currentHour >= 9 && currentHour < 20;
 
-            let newPrice = Math.floor(stock.currentPrice * (1 + changePercent));
-            if (newPrice < 1) newPrice = 1;
+            let newPrice = stock.currentPrice;
+            let isDelisted = stock.isDelisted;
 
-            let isDelisted = false;
-            if (newPrice <= stock.initialPrice * 0.1) {
-              isDelisted = true;
-              newPrice = 0;
+            if (isMarketOpen && !isDelisted) {
+              const randomFactor = (Math.random() - 0.5) * 0.1; 
+              let changePercent = randomFactor;
+              
+              if (changePercent > 0.5) changePercent = 0.5;
+              if (changePercent < -0.5) changePercent = -0.5;
+
+              newPrice = Math.floor(stock.currentPrice * (1 + changePercent));
+              if (newPrice < 1) newPrice = 1;
+
+              if (newPrice <= stock.initialPrice * 0.1) {
+                isDelisted = true;
+                newPrice = 0;
+              }
             }
 
             const newDailyHistory = stock.dailyHistory ? [...stock.dailyHistory] : [{ day: 1, price: stock.initialPrice }];
@@ -112,11 +120,24 @@ export const GameProvider = ({ children }) => {
               newDailyHistory.push({ day: Math.floor(newTicks / ticksPerDay) + 1, price: newPrice });
             }
 
+            const prevTickInDay = (newTicks - 1) % ticksPerDay;
+            const prevTotalMinutes = Math.floor((prevTickInDay / ticksPerDay) * 24 * 60);
+            const prevHour = Math.floor(prevTotalMinutes / 60);
+            
+            let newIntradayHistory = stock.intradayHistory ? { ...stock.intradayHistory } : {};
+            if (newTicks % ticksPerDay === 1) {
+               newIntradayHistory = {};
+            }
+            if (currentHour !== prevHour && currentHour >= 9 && currentHour <= 20) {
+               newIntradayHistory[currentHour] = newPrice;
+            }
+
             return {
               ...stock,
               currentPrice: newPrice,
               history: [...stock.history.slice(-20), newPrice],
               dailyHistory: newDailyHistory,
+              intradayHistory: newIntradayHistory,
               isDelisted
             };
           });
@@ -190,9 +211,19 @@ export const GameProvider = ({ children }) => {
 
   const txt = t[language];
 
+  // Calculate real-time 
+  const ticksPerDay = SPEED_MAP[speedStr];
+  const tickInDay = ticks % ticksPerDay;
+  const dayProgressRatio = tickInDay / ticksPerDay;
+  const totalMinutes = Math.floor(dayProgressRatio * 24 * 60);
+  const currentHour = Math.floor(totalMinutes / 60);
+  const hoursStr = currentHour.toString().padStart(2, '0');
+  const minutesStr = (totalMinutes % 60).toString().padStart(2, '0');
+  const timeStr = `${hoursStr}:${minutesStr}`;
+
   return (
     <GameContext.Provider value={{
-      user, setUser, day, stocks, login, logout, generateCode, depositRate, loanRate,
+      user, setUser, day, timeStr, currentHour, dayProgressRatio, stocks, login, logout, generateCode, depositRate, loanRate,
       language, setLanguage, speedStr, setSpeedStr, txt
     }}>
       {children}

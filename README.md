@@ -1,19 +1,25 @@
-# React + Vite
+# Money Game 💸
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A web-based simulation game where players can trade stocks, manage bank loans and deposits, and grow their wealth over time. 
 
-Currently, two official plugins are available:
+## ✨ Key Features & Recent Updates
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 1. Advanced Stock Market System 📈
+- **Trading Hours:** The market is only open from `09:00` to `19:59` game time.
+- **Real-time Timeline Bar:** A smooth visual indicator showing the current time and active trading window.
+- **Double-click Trading:** Double-clicking "Buy" or "Sell" when empty will auto-fill the maximum quantity and execute the trade rapidly.
+- **Chart Interactions:** Double-clicking the fixed right-side chart will instantly sell all your shares of that stock.
+- **Intraday Charts:** The market list now displays live sparkline charts mapping stock prices specifically during the 9 to 20 hour window.
+- **Pure Random Walk:** Stock prices move naturally without artificial mean-reversion, simulating a truly volatile market.
 
-## React Compiler
+### 2. Smart Banking & Assets 🏦
+- **Auto-capping Inputs:** Inputting values larger than your capacity (e.g., trying to deposit more cash than you have) will instantly auto-correct to the maximum allowed amount.
+- **Dashboard Asset Tracking:** The main dashboard automatically calculates your **Total Assets** (Cash + Deposits - Loans + Portfolio Value).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 3. Global Layout & UI/UX 🎨
+- **Sticky Header:** The player's cash balance (`bolts`) and the real-time game clock are persistently visible across all pages.
+- **Glassmorphism Design:** A modern, sleek UI using glass-panel aesthetics.
 
 ---
-*Note: This is a test commit for code analysis.*
+
+*This project is built with React, Vite, and Recharts.*

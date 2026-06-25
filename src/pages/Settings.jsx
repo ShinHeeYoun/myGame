@@ -7,16 +7,7 @@ function Settings() {
   const navigate = useNavigate();
 
   return (
-    <div className="container">
-      <header className="flex-between" style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate('/')} className="glass-button">{txt.back}</button>
-          <div>
-            <h1>{txt.settingsHeader}</h1>
-            <p className="text-muted">{txt.settingsSub}</p>
-          </div>
-        </div>
-      </header>
+    <div>
 
       <div className="glass-panel" style={{ maxWidth: '600px', margin: '0 auto' }}>
         <div style={{ marginBottom: '32px' }}>

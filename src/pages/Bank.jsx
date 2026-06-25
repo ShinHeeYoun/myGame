@@ -16,6 +16,10 @@ function Bank() {
 
   const handleDeposit = (e) => {
     e.preventDefault();
+    if (!depositAmount || parseInt(depositAmount) === 0) {
+      setDepositAmount(user.bolts.toString());
+      return;
+    }
     const amount = parseInt(depositAmount);
     if (!isNaN(amount) && amount > 0 && amount <= user.bolts) {
       setUser({
@@ -29,6 +33,10 @@ function Bank() {
 
   const handleWithdraw = (e) => {
     e.preventDefault();
+    if (!withdrawAmount || parseInt(withdrawAmount) === 0) {
+      setWithdrawAmount(user.deposit.toString());
+      return;
+    }
     const amount = parseInt(withdrawAmount);
     if (!isNaN(amount) && amount > 0 && amount <= user.deposit) {
       setUser({
@@ -42,6 +50,10 @@ function Bank() {
 
   const handleLoan = (e) => {
     e.preventDefault();
+    if (!loanAmount || parseInt(loanAmount) === 0) {
+      if (maxLoan > 0) setLoanAmount(maxLoan.toString());
+      return;
+    }
     const amount = parseInt(loanAmount);
     if (!isNaN(amount) && amount > 0 && amount <= maxLoan) {
       setUser({
@@ -55,6 +67,11 @@ function Bank() {
 
   const handleRepay = (e) => {
     e.preventDefault();
+    const maxRepay = Math.min(user.bolts, user.loan);
+    if (!repayAmount || parseInt(repayAmount) === 0) {
+      if (maxRepay > 0) setRepayAmount(maxRepay.toString());
+      return;
+    }
     const amount = parseInt(repayAmount);
     if (!isNaN(amount) && amount > 0 && amount <= user.bolts) {
       const actualRepayment = Math.min(amount, user.loan);
@@ -68,22 +85,7 @@ function Bank() {
   };
 
   return (
-    <div className="container">
-      <header className="flex-between" style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate('/')} className="glass-button">{txt.back}</button>
-          <div>
-            <h1>{txt.bankHeader}</h1>
-            <p className="text-muted">Day {day} • {txt.bankSub}</p>
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="text-muted">{txt.walletBalance}</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-bolt)' }}>
-            <span className="bolt-icon">⚡</span>{user.bolts.toLocaleString()}
-          </div>
-        </div>
-      </header>
+    <div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
         
@@ -111,7 +113,14 @@ function Bank() {
               className="glass-input" 
               placeholder={txt.depositAmt} 
               value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val > user.bolts) {
+                  setDepositAmount(user.bolts.toString());
+                } else {
+                  setDepositAmount(e.target.value);
+                }
+              }}
               min="1" max={user.bolts}
             />
             <button type="submit" className="glass-button">{txt.depositBtn}</button>
@@ -123,7 +132,14 @@ function Bank() {
               className="glass-input" 
               placeholder={txt.withdrawAmt} 
               value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val > user.deposit) {
+                  setWithdrawAmount(user.deposit.toString());
+                } else {
+                  setWithdrawAmount(e.target.value);
+                }
+              }}
               min="1" max={user.deposit}
             />
             <button type="submit" className="glass-button">{txt.withdrawBtn}</button>
@@ -158,7 +174,14 @@ function Bank() {
               className="glass-input" 
               placeholder={txt.borrowAmt} 
               value={loanAmount}
-              onChange={(e) => setLoanAmount(e.target.value)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val > maxLoan) {
+                  setLoanAmount(maxLoan.toString());
+                } else {
+                  setLoanAmount(e.target.value);
+                }
+              }}
               min="1" max={maxLoan === 0 ? 1 : maxLoan}
               disabled={maxLoan <= 0}
             />
@@ -171,7 +194,15 @@ function Bank() {
               className="glass-input" 
               placeholder={txt.repayAmt} 
               value={repayAmount}
-              onChange={(e) => setRepayAmount(e.target.value)}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                const maxRepay = Math.min(user.bolts, user.loan);
+                if (!isNaN(val) && val > maxRepay) {
+                  setRepayAmount(maxRepay.toString());
+                } else {
+                  setRepayAmount(e.target.value);
+                }
+              }}
               min="1" max={Math.min(user.bolts, user.loan) === 0 ? 1 : Math.min(user.bolts, user.loan)}
               disabled={user.loan === 0}
             />

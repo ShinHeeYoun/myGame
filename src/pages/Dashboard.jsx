@@ -3,23 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../GameContext';
 
 function Dashboard() {
-  const { user, day, logout, txt } = useGame();
+  const { user, txt, stocks } = useGame();
   const navigate = useNavigate();
 
-  return (
-    <div className="container">
-      <header className="flex-between" style={{ marginBottom: '40px' }}>
-        <div>
-          <h1><span className="bolt-icon">⚡</span> {txt.dashboard}</h1>
-          <p className="text-muted">Day {day} • {txt.player}: {user.code}</p>
-        </div>
-        <button onClick={logout} className="glass-button">{txt.logout}</button>
-      </header>
+  const portfolioValue = Object.keys(user.portfolio).reduce((acc, stockId) => {
+    const stock = stocks.find(s => s.id === stockId);
+    if (stock) {
+      return acc + (user.portfolio[stockId] * stock.currentPrice);
+    }
+    return acc;
+  }, 0);
 
+  const totalAssets = user.bolts + user.deposit - user.loan + portfolioValue;
+
+  return (
+    <div>
       <div className="glass-panel" style={{ marginBottom: '40px', textAlign: 'center' }}>
-        <h2 className="text-muted" style={{ fontWeight: 'normal', fontSize: '1.2rem' }}>{txt.totalBalance}</h2>
+        <h2 className="text-muted" style={{ fontWeight: 'normal', fontSize: '1.2rem' }}>총 자산 (Total Assets)</h2>
         <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--accent-bolt)' }}>
-          <span className="bolt-icon">⚡</span>{user.bolts.toLocaleString()}
+          <span className="bolt-icon">⚡</span>{totalAssets.toLocaleString()}
         </div>
       </div>
 
