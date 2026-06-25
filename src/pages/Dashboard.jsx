@@ -3,18 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../GameContext';
 
 function Dashboard() {
-  const { user, txt, stocks } = useGame();
+  const { user, txt, userPortfolioValue } = useGame();
   const navigate = useNavigate();
 
-  const portfolioValue = Object.keys(user.portfolio).reduce((acc, stockId) => {
-    const stock = stocks.find(s => s.id === stockId);
-    if (stock) {
-      return acc + (user.portfolio[stockId] * stock.currentPrice);
-    }
-    return acc;
-  }, 0);
-
-  const totalAssets = user.bolts + user.deposit - user.loan + portfolioValue;
+  const totalAssets = user.bolts + user.deposit - user.loan + userPortfolioValue;
 
   return (
     <div>

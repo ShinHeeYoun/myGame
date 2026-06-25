@@ -167,7 +167,7 @@ function TimelineBar({ dayProgressRatio }) {
 }
 
 function StockMarket() {
-  const { user, setUser, stocks, txt, currentHour, dayProgressRatio } = useGame();
+  const { user, setUser, stocks, txt, currentHour, dayProgressRatio, userPortfolioValue } = useGame();
   
   const [buyQuantities, setBuyQuantities] = useState({});
   const [sellQuantities, setSellQuantities] = useState({});
@@ -244,14 +244,6 @@ function StockMarket() {
     }
   };
 
-  const portfolioValue = Object.keys(user.portfolio).reduce((acc, stockId) => {
-    const stock = stocks.find(s => s.id === stockId);
-    if (stock) {
-      return acc + (user.portfolio[stockId] * stock.currentPrice);
-    }
-    return acc;
-  }, 0);
-
   const sortedStocks = [...stocks].sort((a, b) => {
     const ownedA = user.portfolio[a.id] || 0;
     const ownedB = user.portfolio[b.id] || 0;
@@ -269,7 +261,7 @@ function StockMarket() {
         <div style={{ textAlign: 'right' }}>
           <div className="text-muted">{txt.portfolioValue}</div>
           <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--success)' }}>
-            ⚡{portfolioValue.toLocaleString()}
+            ⚡{userPortfolioValue.toLocaleString()}
           </div>
         </div>
       </div>

@@ -221,10 +221,27 @@ export const GameProvider = ({ children }) => {
   const minutesStr = (totalMinutes % 60).toString().padStart(2, '0');
   const timeStr = `${hoursStr}:${minutesStr}`;
 
+  // VOSPI calculations
+  const vospi = stocks.reduce((acc, s) => acc + s.currentPrice, 0);
+  const vospiInitial = stocks.reduce((acc, s) => acc + s.initialPrice, 0);
+  const inversePrice = Math.max(1, (vospiInitial * 2) - vospi);
+
+  const getStockPrice = (stockId) => {
+    if (stockId === 'VOSPI') return vospi;
+    if (stockId === 'VOSPI_INV') return inversePrice;
+    const stock = stocks.find(s => s.id === stockId);
+    return stock ? stock.currentPrice : 0;
+  };
+
+  const userPortfolioValue = user ? Object.keys(user.portfolio).reduce((acc, stockId) => {
+    return acc + (user.portfolio[stockId] * getStockPrice(stockId));
+  }, 0) : 0;
+
   return (
     <GameContext.Provider value={{
       user, setUser, day, timeStr, currentHour, dayProgressRatio, stocks, login, logout, generateCode, depositRate, loanRate,
-      language, setLanguage, speedStr, setSpeedStr, txt
+      language, setLanguage, speedStr, setSpeedStr, txt,
+      vospi, vospiInitial, inversePrice, getStockPrice, userPortfolioValue
     }}>
       {children}
     </GameContext.Provider>
