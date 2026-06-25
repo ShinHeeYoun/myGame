@@ -18,6 +18,7 @@ const generateInitialStocks = () => {
       initialPrice,
       currentPrice: initialPrice,
       history: [initialPrice],
+      dailyHistory: [{ day: 1, price: initialPrice }],
       isDelisted: false,
     };
   });
@@ -98,10 +99,16 @@ export const GameProvider = ({ children }) => {
               newPrice = 0;
             }
 
+            const newDailyHistory = stock.dailyHistory ? [...stock.dailyHistory] : [{ day: 1, price: stock.initialPrice }];
+            if (newTicks % TICKS_PER_DAY === 0) {
+              newDailyHistory.push({ day: Math.floor(newTicks / TICKS_PER_DAY) + 1, price: newPrice });
+            }
+
             return {
               ...stock,
               currentPrice: newPrice,
               history: [...stock.history.slice(-20), newPrice], // Keep last 20 ticks for sparkline
+              dailyHistory: newDailyHistory,
               isDelisted
             };
           });
