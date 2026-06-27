@@ -4,7 +4,7 @@ import { useGame } from '../GameContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 function IntradayChart({ intradayHistory }) {
-  const hours = Array.from({length: 12}, (_, i) => 9 + i);
+  const hours = Array.from({length: 19}, (_, i) => 6 + i);
   const pointsData = hours.map(h => intradayHistory[h]).filter(p => p !== undefined && p > 0);
   if (pointsData.length === 0) return <div style={{ width: '150px' }}></div>;
   
@@ -17,7 +17,7 @@ function IntradayChart({ intradayHistory }) {
   const points = hours.map((h, idx) => {
     const val = intradayHistory[h];
     if (val === undefined || val === 0) return null;
-    const x = (idx / 11) * width;
+    const x = (idx / 18) * width;
     const y = height - ((val - min) / range) * height;
     return `${x},${y}`;
   }).filter(Boolean).join(' ');
@@ -31,7 +31,7 @@ function IntradayChart({ intradayHistory }) {
         <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-        <span>9</span><span>12</span><span>15</span><span>20</span>
+        <span>6</span><span>12</span><span>18</span><span>24</span>
       </div>
     </div>
   );
@@ -53,7 +53,14 @@ function VOSPIChart({ data, initialPrice }) {
     return data.filter(d => d.day >= startDay);
   };
 
-  const chartData = getFilteredData();
+  const filteredData = getFilteredData();
+  const uniqueDays = new Set();
+  const chartData = filteredData.filter(d => {
+    if (uniqueDays.has(d.day)) return false;
+    uniqueDays.add(d.day);
+    return true;
+  });
+
   const isUp = chartData.length > 0 && chartData[chartData.length - 1].price >= chartData[0].price;
   const strokeColor = isUp ? '#22c55e' : '#ef4444';
 
@@ -93,16 +100,18 @@ function VOSPIChart({ data, initialPrice }) {
           ))}
         </div>
       </div>
-      <div style={{ height: '250px', width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis domain={['auto', 'auto']} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} width={40} />
-            <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={initialPrice} stroke="var(--text-muted)" strokeDasharray="3 3" />
-            <Line type="monotone" dataKey="price" stroke={strokeColor} strokeWidth={2} dot={false} isAnimationActive={false} />
-          </LineChart>
-        </ResponsiveContainer>
+      <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden' }}>
+        <div style={{ height: '250px', minWidth: `${Math.max(100, (chartData.length / 90) * 100)}%` }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis domain={['auto', 'auto']} stroke="var(--text-muted)" fontSize={12} tickLine={false} axisLine={false} width={40} />
+              <Tooltip content={<CustomTooltip />} />
+              <ReferenceLine y={initialPrice} stroke="var(--text-muted)" strokeDasharray="3 3" />
+              <Line type="monotone" dataKey="price" stroke={strokeColor} strokeWidth={2} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
@@ -125,10 +134,16 @@ function Bank() {
   const [buyINV, setBuyINV] = useState('');
   const [sellINV, setSellINV] = useState('');
 
-  const isMarketOpen = currentHour >= 9 && currentHour < 20;
+  const isMarketOpen = currentHour >= 6 && currentHour < 24;
 
   const netWorth = user.bolts + user.deposit - user.loan;
-  const maxLoan = Math.max(0, Math.floor(netWorth * 0.5) - user.loan);
+  
+  const baseLimit = 10000;
+  const creditBonus = user.creditLimitBonus || 0;
+  const netWorthLimit = Math.max(0, Math.floor(netWorth * 0.5));
+  
+  const totalLoanCapacity = baseLimit + creditBonus + netWorthLimit;
+  const maxLoan = Math.max(0, totalLoanCapacity - user.loan);
 
   // Bank Handlers
   const handleDeposit = (e) => {
@@ -165,7 +180,12 @@ function Bank() {
     }
     const amount = parseInt(loanAmount);
     if (!isNaN(amount) && amount > 0 && amount <= maxLoan) {
-      setUser({ ...user, bolts: user.bolts + amount, loan: user.loan + amount });
+      setUser({ 
+        ...user, 
+        bolts: user.bolts + amount, 
+        loan: user.loan + amount,
+        loanPrincipal: (user.loanPrincipal || user.loan || 0) + amount
+      });
       setLoanAmount('');
     }
   };
@@ -180,7 +200,22 @@ function Bank() {
     const amount = parseInt(repayAmount);
     if (!isNaN(amount) && amount > 0 && amount <= user.bolts) {
       const actualRepayment = Math.min(amount, user.loan);
-      setUser({ ...user, bolts: user.bolts - actualRepayment, loan: user.loan - actualRepayment });
+      
+      const currentPrincipal = user.loanPrincipal !== undefined ? user.loanPrincipal : user.loan;
+      const currentInterest = Math.max(0, user.loan - currentPrincipal);
+      
+      const paidInterest = Math.min(actualRepayment, currentInterest);
+      const paidPrincipal = actualRepayment - paidInterest;
+      
+      const newCreditBonus = (user.creditLimitBonus || 0) + Math.floor(paidInterest * 4) + Math.floor(paidPrincipal * 0.01);
+
+      setUser({ 
+        ...user, 
+        bolts: user.bolts - actualRepayment, 
+        loan: user.loan - actualRepayment,
+        loanPrincipal: Math.max(0, currentPrincipal - paidPrincipal),
+        creditLimitBonus: newCreditBonus
+      });
       setRepayAmount('');
     }
   };
@@ -194,36 +229,36 @@ function Bank() {
 
     if (action === 'BUY') {
       const qtyStr = inputVal;
-      if (!qtyStr || parseInt(qtyStr) === 0) {
-        const maxBuy = Math.floor(user.bolts / price);
+      if (!qtyStr || parseFloat(qtyStr) === 0) {
+        const maxBuy = Math.floor((user.bolts / price) * 100) / 100;
         if (maxBuy > 0) setInputStr(maxBuy.toString());
         return;
       }
-      const qty = parseInt(qtyStr);
+      const qty = parseFloat(qtyStr);
       if (qty > 0) {
         const cost = qty * price;
         if (user.bolts >= cost) {
           setUser({
             ...user,
             bolts: user.bolts - cost,
-            portfolio: { ...user.portfolio, [ticker]: owned + qty }
+            portfolio: { ...user.portfolio, [ticker]: Number((owned + qty).toFixed(2)) }
           });
           setInputStr('');
         }
       }
     } else {
       const qtyStr = inputVal;
-      if (!qtyStr || parseInt(qtyStr) === 0) {
+      if (!qtyStr || parseFloat(qtyStr) === 0) {
         if (owned > 0) setInputStr(owned.toString());
         return;
       }
-      const qty = parseInt(qtyStr);
+      const qty = parseFloat(qtyStr);
       if (qty > 0 && owned >= qty) {
         const revenue = qty * price;
         setUser({
           ...user,
           bolts: user.bolts + revenue,
-          portfolio: { ...user.portfolio, [ticker]: owned - qty }
+          portfolio: { ...user.portfolio, [ticker]: Number((owned - qty).toFixed(2)) }
         });
         setInputStr('');
       }
@@ -231,25 +266,65 @@ function Bank() {
   };
 
   // VOSPI History construction
-  const dailyHistoryDays = stocks[0].dailyHistory.map(d => d.day);
+  const allDays = new Set();
+  stocks.forEach(s => {
+    if (s.dailyHistory) s.dailyHistory.forEach(d => allDays.add(d.day));
+  });
+  const dailyHistoryDays = Array.from(allDays).sort((a,b) => a - b);
+
   const vospiDailyHistory = dailyHistoryDays.map(day => {
     const price = stocks.reduce((sum, stock) => {
-      const dayData = stock.dailyHistory.find(d => d.day === day);
-      return sum + (dayData ? dayData.price : stock.initialPrice);
+      const dayData = stock.dailyHistory ? stock.dailyHistory.find(d => d.day === day) : null;
+      if (dayData) return sum + dayData.price;
+      
+      // If delisted and day is after delisting, price is 0
+      if (stock.isDelisted && stock.dailyHistory && stock.dailyHistory.length > 0) {
+        const lastDayData = stock.dailyHistory[stock.dailyHistory.length - 1];
+        if (day > lastDayData.day) return sum + 0;
+      }
+      return sum + stock.initialPrice;
     }, 0);
     return { day, price };
   });
 
-  const hours = Array.from({length: 12}, (_, i) => 9 + i);
+  const hours = Array.from({length: 19}, (_, i) => 6 + i);
   const vospiIntradayHistory = {};
   hours.forEach(h => {
     vospiIntradayHistory[h] = stocks.reduce((sum, s) => sum + (s.intradayHistory[h] || 0), 0);
   });
 
-  const vospiRatio = vospi / vospiInitial;
-  const vospiColor = vospiRatio >= 1 ? 'text-success' : 'text-danger';
-  const invRatio = inversePrice / vospiInitial;
-  const invColor = invRatio >= 1 ? 'text-success' : 'text-danger';
+  const currentDay = vospiDailyHistory.length > 0 ? vospiDailyHistory[vospiDailyHistory.length - 1].day : 1;
+  const vospiPrevious = vospiDailyHistory.length > 1 ? vospiDailyHistory[vospiDailyHistory.length - 2].price : vospiInitial;
+  
+  // VOSPI Changes
+  const vospiDailyRatio = vospi / vospiPrevious;
+  const vospiDailyStr = ((vospiDailyRatio - 1) * 100).toFixed(1) + '%';
+  const vospiDailyColor = vospiDailyRatio >= 1 ? 'text-success' : 'text-danger';
+
+  const targetMonthDay = Math.max(1, currentDay - 30);
+  const vospiMonthlyData = vospiDailyHistory.find(d => d.day === targetMonthDay) || vospiDailyHistory[0];
+  const vospiMonthlyRatio = vospi / (vospiMonthlyData ? vospiMonthlyData.price : vospiInitial);
+  const vospiMonthlyStr = ((vospiMonthlyRatio - 1) * 100).toFixed(1) + '%';
+  const vospiMonthlyColor = vospiMonthlyRatio >= 1 ? 'text-success' : 'text-danger';
+
+  const vospiAllRatio = vospi / vospiInitial;
+  const vospiAllStr = ((vospiAllRatio - 1) * 100).toFixed(1) + '%';
+  const vospiAllColor = vospiAllRatio >= 1 ? 'text-success' : 'text-danger';
+
+  // Inverse Changes
+  const invPrevious = Math.max(1, (vospiInitial * 2) - vospiPrevious);
+  const invDailyRatio = inversePrice / invPrevious;
+  const invDailyStr = ((invDailyRatio - 1) * 100).toFixed(1) + '%';
+  const invDailyColor = invDailyRatio >= 1 ? 'text-success' : 'text-danger';
+
+  const invMonthlyPrice = Math.max(1, (vospiInitial * 2) - (vospiMonthlyData ? vospiMonthlyData.price : vospiInitial));
+  const invMonthlyRatio = inversePrice / invMonthlyPrice;
+  const invMonthlyStr = ((invMonthlyRatio - 1) * 100).toFixed(1) + '%';
+  const invMonthlyColor = invMonthlyRatio >= 1 ? 'text-success' : 'text-danger';
+
+  const invAllRatio = inversePrice / vospiInitial;
+  const invAllStr = ((invAllRatio - 1) * 100).toFixed(1) + '%';
+  const invAllColor = invAllRatio >= 1 ? 'text-success' : 'text-danger';
 
   return (
     <div>
@@ -354,7 +429,7 @@ function Bank() {
 
           {!isMarketOpen && (
             <div className="glass-panel" style={{ padding: '12px', marginBottom: '16px', background: 'rgba(234, 179, 8, 0.1)', borderColor: 'var(--warning)', color: 'var(--warning)', textAlign: 'center' }}>
-              Market is closed. Trading hours are 09:00 - 19:59.
+              Market is closed. Trading hours are 06:00 - 23:59.
             </div>
           )}
 
@@ -369,12 +444,14 @@ function Bank() {
                     <div className="text-muted" style={{ fontSize: '0.8rem' }}>Index Fund</div>
                   </div>
                   
-                  <div style={{ width: '120px' }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={vospiColor}>
+                  <div style={{ width: '100px' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={vospiDailyColor}>
                       ⚡{vospi.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.8rem' }} className={vospiColor}>
-                      {((vospiRatio - 1) * 100).toFixed(1)}%
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                      <div style={{ fontSize: '0.7rem' }} className={vospiDailyColor}>1D: {vospiDailyRatio >= 1 ? '+' : ''}{vospiDailyStr}</div>
+                      <div style={{ fontSize: '0.7rem' }} className={vospiMonthlyColor}>1M: {vospiMonthlyRatio >= 1 ? '+' : ''}{vospiMonthlyStr}</div>
+                      <div style={{ fontSize: '0.7rem' }} className={vospiAllColor}>ALL: {vospiAllRatio >= 1 ? '+' : ''}{vospiAllStr}</div>
                     </div>
                   </div>
 
@@ -385,6 +462,11 @@ function Bank() {
                   <div style={{ width: '100px', textAlign: 'center' }}>
                     <div className="text-muted" style={{ fontSize: '0.8rem' }}>{txt.owned}</div>
                     <div style={{ fontWeight: 'bold' }}>{user.portfolio['VOSPI'] || 0}</div>
+                    {(user.portfolio['VOSPI'] || 0) > 0 && (
+                      <div className="text-success" style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                        ⚡{((user.portfolio['VOSPI'] || 0) * vospi).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -392,20 +474,15 @@ function Bank() {
                   {isMarketOpen ? (
                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <input type="number" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.buy} value={buyVOSPI} onChange={(e) => setBuyVOSPI(e.target.value)} min="1" />
+                        <input type="number" step="0.01" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.buy} value={buyVOSPI} onChange={(e) => setBuyVOSPI(e.target.value)} min="0.01" />
                         <button onClick={() => executeFundTrade('VOSPI', 'BUY', buyVOSPI, setBuyVOSPI)} className="glass-button" style={{ padding: '8px', background: 'rgba(34, 197, 94, 0.2)', borderColor: 'var(--success)', color: 'var(--success)' }}>{txt.buy}</button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <input type="number" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.sell} value={sellVOSPI} onChange={(e) => setSellVOSPI(e.target.value)} min="1" disabled={!(user.portfolio['VOSPI'] > 0)} />
+                        <input type="number" step="0.01" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.sell} value={sellVOSPI} onChange={(e) => setSellVOSPI(e.target.value)} min="0.01" disabled={!(user.portfolio['VOSPI'] > 0)} />
                         <button onClick={() => executeFundTrade('VOSPI', 'SELL', sellVOSPI, setSellVOSPI)} className="glass-button" style={{ padding: '8px', background: 'rgba(239, 68, 68, 0.2)', borderColor: 'var(--danger)', color: 'var(--danger)' }} disabled={!(user.portfolio['VOSPI'] > 0)}>{txt.sell}</button>
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>Daily Change</div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={vospiColor}>{((vospiRatio - 1) * 100).toFixed(1)}%</div>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -419,12 +496,14 @@ function Bank() {
                     <div className="text-muted" style={{ fontSize: '0.8rem' }}>Inverse (1x)</div>
                   </div>
                   
-                  <div style={{ width: '120px' }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={invColor}>
+                  <div style={{ width: '100px' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={invDailyColor}>
                       ⚡{inversePrice.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.8rem' }} className={invColor}>
-                      {((invRatio - 1) * 100).toFixed(1)}%
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                      <div style={{ fontSize: '0.7rem' }} className={invDailyColor}>1D: {invDailyRatio >= 1 ? '+' : ''}{invDailyStr}</div>
+                      <div style={{ fontSize: '0.7rem' }} className={invMonthlyColor}>1M: {invMonthlyRatio >= 1 ? '+' : ''}{invMonthlyStr}</div>
+                      <div style={{ fontSize: '0.7rem' }} className={invAllColor}>ALL: {invAllRatio >= 1 ? '+' : ''}{invAllStr}</div>
                     </div>
                   </div>
 
@@ -439,6 +518,11 @@ function Bank() {
                   <div style={{ width: '100px', textAlign: 'center' }}>
                     <div className="text-muted" style={{ fontSize: '0.8rem' }}>{txt.owned}</div>
                     <div style={{ fontWeight: 'bold' }}>{user.portfolio['VOSPI_INV'] || 0}</div>
+                    {(user.portfolio['VOSPI_INV'] || 0) > 0 && (
+                      <div className="text-success" style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                        ⚡{((user.portfolio['VOSPI_INV'] || 0) * inversePrice).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -446,20 +530,15 @@ function Bank() {
                   {isMarketOpen ? (
                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <input type="number" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.buy} value={buyINV} onChange={(e) => setBuyINV(e.target.value)} min="1" />
+                        <input type="number" step="0.01" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.buy} value={buyINV} onChange={(e) => setBuyINV(e.target.value)} min="0.01" />
                         <button onClick={() => executeFundTrade('INV', 'BUY', buyINV, setBuyINV)} className="glass-button" style={{ padding: '8px', background: 'rgba(34, 197, 94, 0.2)', borderColor: 'var(--success)', color: 'var(--success)' }}>{txt.buy}</button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <input type="number" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.sell} value={sellINV} onChange={(e) => setSellINV(e.target.value)} min="1" disabled={!(user.portfolio['VOSPI_INV'] > 0)} />
+                        <input type="number" step="0.01" className="glass-input" style={{ width: '70px', padding: '8px' }} placeholder={txt.sell} value={sellINV} onChange={(e) => setSellINV(e.target.value)} min="0.01" disabled={!(user.portfolio['VOSPI_INV'] > 0)} />
                         <button onClick={() => executeFundTrade('INV', 'SELL', sellINV, setSellINV)} className="glass-button" style={{ padding: '8px', background: 'rgba(239, 68, 68, 0.2)', borderColor: 'var(--danger)', color: 'var(--danger)' }} disabled={!(user.portfolio['VOSPI_INV'] > 0)}>{txt.sell}</button>
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ textAlign: 'right' }}>
-                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>Daily Change</div>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }} className={invColor}>{((invRatio - 1) * 100).toFixed(1)}%</div>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -25,39 +25,164 @@ const generateInitialStocks = () => {
       currentPrice: initialPrice,
       history: [initialPrice],
       dailyHistory: [{ day: 1, price: initialPrice }],
-      intradayHistory: { 9: initialPrice },
+      intradayHistory: { 6: initialPrice },
       isDelisted: false,
     };
   });
 };
 
+function simulateCatchUp(parsed, elapsedTicks, ticksPerDay) {
+  let { stocks, day, ticks, depositRate, loanRate } = parsed;
+  let mStocks = JSON.parse(JSON.stringify(stocks));
+  
+  for (let i = 0; i < elapsedTicks; i++) {
+    ticks++;
+    const tickInDay = ticks % ticksPerDay;
+    const totalMinutes = Math.floor((tickInDay / ticksPerDay) * 24 * 60);
+    const currentHour = Math.floor(totalMinutes / 60);
+    const isMarketOpen = currentHour >= 6 && currentHour < 24;
+
+    const prevTickInDay = (ticks - 1) % ticksPerDay;
+    const prevTotalMinutes = Math.floor((prevTickInDay / ticksPerDay) * 24 * 60);
+    const prevHour = Math.floor(prevTotalMinutes / 60);
+
+    for (let s of mStocks) {
+      if (s.isDelisted) continue;
+
+      if (isMarketOpen) {
+        const logChange = (Math.random() - 0.5) * 0.1;
+        const multiplier = Math.exp(logChange);
+        s.currentPrice = Math.round(s.currentPrice * multiplier);
+        if (s.currentPrice === s.history[s.history.length-1]) { 
+          s.currentPrice += (Math.random() > 0.5 ? 1 : -1);
+        }
+        if (s.currentPrice < 1) s.currentPrice = 1;
+        if (s.currentPrice <= s.initialPrice * 0.1) {
+          s.isDelisted = true;
+          s.currentPrice = 0;
+        }
+      }
+
+      s.history.push(s.currentPrice);
+      if (s.history.length > 20) s.history.shift();
+
+      if (ticks % ticksPerDay === 0) {
+        if (!s.dailyHistory) s.dailyHistory = [];
+        s.dailyHistory.push({ day: Math.floor(ticks / ticksPerDay) + 1, price: s.currentPrice });
+      }
+
+      if (ticks % ticksPerDay === 1) {
+        s.intradayHistory = {};
+      }
+      if (currentHour !== prevHour && currentHour >= 6 && currentHour <= 24) {
+        if(!s.intradayHistory) s.intradayHistory = {};
+        s.intradayHistory[currentHour] = s.currentPrice;
+      }
+    }
+
+    if (ticks % ticksPerDay === 0) {
+      day++;
+    }
+
+    if (ticks % (ticksPerDay * 3) === 0) {
+      const activeStocks = mStocks.filter(s => !s.isDelisted);
+      let marketHealth = 1;
+      if (activeStocks.length > 0) {
+         marketHealth = activeStocks.reduce((acc, s) => acc + (s.currentPrice / s.initialPrice), 0) / activeStocks.length;
+      }
+      depositRate = Math.min(Math.max(0.02 * marketHealth, 0.005), 0.1);
+    }
+  }
+
+  return { stocks: mStocks, day, ticks, depositRate, loanRate, lastUpdate: Date.now() };
+}
+
 export const GameProvider = ({ children }) => {
   const [user, setUser] = useState(null); 
-  const [day, setDay] = useState(1);
-  const [ticks, setTicks] = useState(0);
-  const [stocks, setStocks] = useState(generateInitialStocks());
-  
-  const [depositRate, setDepositRate] = useState(0.02);
-  const [loanRate, setLoanRate] = useState(0.05);
-  
-  // Settings
   const [language, setLanguage] = useState(localStorage.getItem('bg_lang') || 'ko');
   const [speedStr, setSpeedStr] = useState(localStorage.getItem('bg_speed') || 'veryFast');
+  
+  const [day, setDay] = useState(1);
+  const [ticks, setTicks] = useState(0);
+  const [stocks, setStocks] = useState([]);
+  const [depositRate, setDepositRate] = useState(0.02);
+  const [loanRate, setLoanRate] = useState(0.05);
 
-  // Load from localStorage on mount
+  const [initialized, setInitialized] = useState(false);
+
+  // Load and catch-up global state
   useEffect(() => {
+    const savedGlobal = localStorage.getItem('bg_global_state');
+    const ticksPerDay = SPEED_MAP[speedStr] || 60;
+    let finalState;
+
+    if (savedGlobal) {
+      const parsed = JSON.parse(savedGlobal);
+      // Compatibility fallback
+      if(!parsed.stocks) parsed.stocks = generateInitialStocks();
+      if(!parsed.day) parsed.day = 1;
+      if(!parsed.ticks) parsed.ticks = 0;
+      if(!parsed.depositRate) parsed.depositRate = 0.02;
+      if(!parsed.loanRate) parsed.loanRate = 0.05;
+
+      const now = Date.now();
+      const elapsedTicks = Math.min(Math.floor((now - (parsed.lastUpdate || now)) / TICK_MS), 2592000); 
+      
+      if (elapsedTicks > 0) {
+        finalState = simulateCatchUp(parsed, elapsedTicks, ticksPerDay);
+      } else {
+        finalState = { ...parsed, lastUpdate: now };
+      }
+    } else {
+      finalState = {
+        stocks: generateInitialStocks(),
+        day: 1,
+        ticks: 0,
+        depositRate: 0.02,
+        loanRate: 0.05,
+        lastUpdate: Date.now()
+      };
+    }
+
+    setStocks(finalState.stocks);
+    setDay(finalState.day);
+    setTicks(finalState.ticks);
+    setDepositRate(finalState.depositRate);
+    setLoanRate(finalState.loanRate);
+    setInitialized(true);
+
+    // Initial Login Catchup
     const savedCode = localStorage.getItem('bg_user_code');
     if (savedCode) {
       const savedData = localStorage.getItem(`bg_user_${savedCode}`);
       if (savedData) {
-        setUser(JSON.parse(savedData));
+        let userData = JSON.parse(savedData);
+        if (userData.lastTick !== undefined && finalState.ticks > userData.lastTick) {
+            let missedDays = 0;
+            for(let t = userData.lastTick + 1; t <= finalState.ticks; t++) {
+                if (t % ticksPerDay === 0) missedDays++;
+            }
+            if (missedDays > 0) {
+                let newDeposit = userData.deposit || 0;
+                let newLoan = userData.loan || 0;
+                for (let i = 0; i < missedDays; i++) {
+                    newDeposit += Math.floor(newDeposit * finalState.depositRate);
+                    newLoan += Math.floor(newLoan * finalState.loanRate);
+                }
+                userData.deposit = newDeposit;
+                userData.loan = newLoan;
+            }
+        }
+        userData.lastTick = finalState.ticks;
+        if (userData.coins === undefined) userData.coins = 0;
+        setUser(userData);
       } else {
-        setUser({ code: savedCode, bolts: INITIAL_FUNDS, deposit: 0, loan: 0, portfolio: {} });
+        setUser({ code: savedCode, bolts: INITIAL_FUNDS, deposit: 0, loan: 0, portfolio: {}, coins: 0, lastTick: finalState.ticks, loanPrincipal: 0, creditLimitBonus: 0 });
       }
     }
-  }, []);
+  }, []); // Only on mount
 
-  // Save to localStorage when user changes
+  // Save user when changed (and we continuously update lastTick)
   useEffect(() => {
     if (user) {
       localStorage.setItem('bg_user_code', user.code);
@@ -67,7 +192,6 @@ export const GameProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Save settings
   useEffect(() => {
     localStorage.setItem('bg_lang', language);
   }, [language]);
@@ -78,9 +202,9 @@ export const GameProvider = ({ children }) => {
 
   // Main Game Loop
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!user) return; // Only run logic if logged in
+    if (!initialized) return;
 
+    const interval = setInterval(() => {
       const ticksPerDay = SPEED_MAP[speedStr];
 
       setTicks(tCount => {
@@ -94,19 +218,21 @@ export const GameProvider = ({ children }) => {
             const tickInDay = newTicks % ticksPerDay;
             const totalMinutes = Math.floor((tickInDay / ticksPerDay) * 24 * 60);
             const currentHour = Math.floor(totalMinutes / 60);
-            const isMarketOpen = currentHour >= 9 && currentHour < 20;
+            const isMarketOpen = currentHour >= 6 && currentHour < 24;
 
             let newPrice = stock.currentPrice;
             let isDelisted = stock.isDelisted;
 
             if (isMarketOpen && !isDelisted) {
-              const randomFactor = (Math.random() - 0.5) * 0.1; 
-              let changePercent = randomFactor;
+              const logChange = (Math.random() - 0.5) * 0.1; // ±5% volatility
+              const multiplier = Math.exp(logChange);
               
-              if (changePercent > 0.5) changePercent = 0.5;
-              if (changePercent < -0.5) changePercent = -0.5;
+              newPrice = Math.round(stock.currentPrice * multiplier);
+              
+              if (newPrice === stock.currentPrice) {
+                newPrice += (Math.random() > 0.5 ? 1 : -1);
+              }
 
-              newPrice = Math.floor(stock.currentPrice * (1 + changePercent));
               if (newPrice < 1) newPrice = 1;
 
               if (newPrice <= stock.initialPrice * 0.1) {
@@ -128,7 +254,7 @@ export const GameProvider = ({ children }) => {
             if (newTicks % ticksPerDay === 1) {
                newIntradayHistory = {};
             }
-            if (currentHour !== prevHour && currentHour >= 9 && currentHour <= 20) {
+            if (currentHour !== prevHour && currentHour >= 6 && currentHour <= 24) {
                newIntradayHistory[currentHour] = newPrice;
             }
 
@@ -154,8 +280,15 @@ export const GameProvider = ({ children }) => {
             return {
               ...prev,
               deposit: prev.deposit + depositInterest,
-              loan: prev.loan + loanInterest
+              loan: prev.loan + loanInterest,
+              lastTick: newTicks
             };
+          });
+        } else {
+          // Constantly update lastTick for user to ensure accurate save state
+          setUser(prev => {
+            if (!prev) return prev;
+            return { ...prev, lastTick: newTicks };
           });
         }
 
@@ -187,15 +320,44 @@ export const GameProvider = ({ children }) => {
     }, TICK_MS);
 
     return () => clearInterval(interval);
-  }, [user, depositRate, loanRate, speedStr]);
+  }, [initialized, depositRate, loanRate, speedStr]);
+
+  // Continuously save global state every tick
+  useEffect(() => {
+    if (initialized) {
+      localStorage.setItem('bg_global_state', JSON.stringify({
+        stocks, day, ticks, depositRate, loanRate, lastUpdate: Date.now()
+      }));
+    }
+  }, [stocks, day, ticks, depositRate, loanRate, initialized]);
 
   // Actions
   const login = (code) => {
     const savedData = localStorage.getItem(`bg_user_${code}`);
     if (savedData) {
-      setUser(JSON.parse(savedData));
+      let userData = JSON.parse(savedData);
+      const ticksPerDay = SPEED_MAP[speedStr];
+      if (userData.lastTick !== undefined && ticks > userData.lastTick) {
+          let missedDays = 0;
+          for(let t = userData.lastTick + 1; t <= ticks; t++) {
+              if (t % ticksPerDay === 0) missedDays++;
+          }
+          if (missedDays > 0) {
+              let newDeposit = userData.deposit || 0;
+              let newLoan = userData.loan || 0;
+              for (let i = 0; i < missedDays; i++) {
+                  newDeposit += Math.floor(newDeposit * depositRate);
+                  newLoan += Math.floor(newLoan * loanRate);
+              }
+              userData.deposit = newDeposit;
+              userData.loan = newLoan;
+          }
+      }
+      userData.lastTick = ticks;
+      if (userData.coins === undefined) userData.coins = 0;
+      setUser(userData);
     } else {
-      const newUser = { code, bolts: INITIAL_FUNDS, deposit: 0, loan: 0, portfolio: {} };
+      const newUser = { code, bolts: INITIAL_FUNDS, deposit: 0, loan: 0, portfolio: {}, coins: 0, lastTick: ticks };
       setUser(newUser);
       localStorage.setItem(`bg_user_${code}`, JSON.stringify(newUser));
     }
@@ -212,7 +374,7 @@ export const GameProvider = ({ children }) => {
   const txt = t[language];
 
   // Calculate real-time 
-  const ticksPerDay = SPEED_MAP[speedStr];
+  const ticksPerDay = SPEED_MAP[speedStr] || 60;
   const tickInDay = ticks % ticksPerDay;
   const dayProgressRatio = tickInDay / ticksPerDay;
   const totalMinutes = Math.floor(dayProgressRatio * 24 * 60);
@@ -236,6 +398,8 @@ export const GameProvider = ({ children }) => {
   const userPortfolioValue = user ? Object.keys(user.portfolio).reduce((acc, stockId) => {
     return acc + (user.portfolio[stockId] * getStockPrice(stockId));
   }, 0) : 0;
+
+  if (!initialized) return null; // Prevent rendering before catchup is done
 
   return (
     <GameContext.Provider value={{

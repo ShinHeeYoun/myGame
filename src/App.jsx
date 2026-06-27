@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Bank from './pages/Bank'
 import StockMarket from './pages/StockMarket'
+import Casino from './pages/Casino'
 import Settings from './pages/Settings'
 
 function PrivateRoute({ children }) {
@@ -22,6 +23,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/bank" element={<Bank />} />
         <Route path="/stock" element={<StockMarket />} />
+        <Route path="/casino" element={<Casino />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>

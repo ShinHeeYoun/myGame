@@ -38,14 +38,14 @@ function Dashboard() {
           <button onClick={() => navigate('/stock')} className="glass-button" style={{ width: '100%' }}>{txt.enterMarket}</button>
         </div>
 
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: 0.6 }}>
+        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <h3>{txt.cardTitle}</h3>
             <p className="text-muted" style={{ marginBottom: '24px' }}>
               {txt.cardDesc}
             </p>
           </div>
-          <button disabled className="glass-button" style={{ width: '100%' }}>{txt.comingSoon}</button>
+          <button onClick={() => navigate('/casino')} className="glass-button" style={{ width: '100%' }}>Play</button>
         </div>
         
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

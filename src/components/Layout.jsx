@@ -40,6 +40,13 @@ function Layout() {
             >
               {txt.stockTitle.replace('📈 ', '')}
             </button>
+            <button 
+              onClick={() => navigate('/casino')} 
+              className="glass-button" 
+              style={{ padding: '8px 16px', background: location.pathname === '/casino' ? 'var(--accent-bolt)' : '', color: location.pathname === '/casino' ? '#fff' : '' }}
+            >
+              {txt.cardTitle.replace(/🎰 |🃏 /, '')}
+            </button>
           </div>
         </div>
 

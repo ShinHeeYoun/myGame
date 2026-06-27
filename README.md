@@ -23,3 +23,17 @@ A web-based simulation game where players can trade stocks, manage bank loans an
 ---
 
 *This project is built with React, Vite, and Recharts.*
+
+## ?? Code Structure (Modularized)
+
+The codebase has been refactored for high maintainability and modularity:
+
+```text
+src/
+ ¦² components/
+ ¦­ ¦² ui/                  # Reusable UI components (e.g., BetButton, Card)
+ ¦­ ¦² casino/              # Casino-specific game modules (Blackjack, Slots)
+ ¦­ ¦± stock/               # Stock market charts and UI modules
+ ¦² pages/                 # Container pages (Casino, StockMarket, Bank, etc.)
+ ¦± utils/                 # Pure business logic and helper functions (e.g., cards.js)
+```
